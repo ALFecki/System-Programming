@@ -14,7 +14,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 HWND hWndEdit = NULL;
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
-	// Register the window class.
 	const wchar_t CLASS_NAME[] = L"Sample Window Class";
 
 	WNDCLASS wc = { };
@@ -25,21 +24,16 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 	RegisterClass(&wc);
 
-	// Create the window.
-
 	HWND hwnd = CreateWindowEx(
-		0,                              // Optional window styles.
-		CLASS_NAME,                     // Window class
-		L"Learn to Program Windows",    // Window text
-		WS_OVERLAPPEDWINDOW,            // Window style
-
-		// Size and position
+		0,                              
+		CLASS_NAME,                     
+		L"Learn to Program Windows",    
+		WS_OVERLAPPEDWINDOW,        
 		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-
-		NULL,       // Parent window    
-		NULL,       // Menu
-		hInstance,  // Instance handle
-		NULL        // Additional application data
+		NULL,       
+		NULL,       
+		hInstance,
+		NULL
 	);
 
 	if (hwnd == NULL) {
@@ -47,8 +41,6 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	}
 
 	ShowWindow(hwnd, nCmdShow);
-
-	// Run the message loop.
 
 	MSG msg = { };
 	while (GetMessage(&msg, NULL, 0, 0) > 0) {
@@ -83,7 +75,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT)hSubMenu, L"&File");
 		SetMenu(hwnd, hMenu);
 		hWndEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Edit"), NULL,
-			WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_LEFT | ES_MULTILINE | ES_WANTRETURN,
+			WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_LEFT | ES_MULTILINE | ES_WANTRETURN | WS_VISIBLE,
 			0, 0, 780, 560, hwnd, NULL,
 			(HINSTANCE)GetWindowLong(hwnd, GWL_HINSTANCE),
 			NULL);
@@ -115,7 +107,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 							LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize + 1);
 							DWORD read;
 							size_t outSize;
-							
+
 
 							if (ReadFile(hFile, buffer, fileSize, &read, NULL)) {
 								wchar_t* convertedBuffer = new wchar_t[read + 1];
@@ -145,7 +137,30 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				IID_IFileSaveDialog, reinterpret_cast<void**>(&pFileSave));
 			if (SUCCEEDED(hr)) {
 				hr = pFileSave->Show(NULL);
+				if (SUCCEEDED(hr)) {
+					IShellItem* pItem;
+					hr = pFileSave->GetResult(&pItem);
+					if (SUCCEEDED(hr)) {
+						PWSTR pszFilePath;
+						hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+						if (SUCCEEDED(hr)) {
+							HANDLE hFile = CreateFile(pszFilePath, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+							DWORD fileSize = GetWindowTextLength(hWndEdit) + 1;
+							LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize * sizeof(char));;
+							GetWindowTextA(hWndEdit, buffer, fileSize * sizeof(char));
+							DWORD wroted;
+
+							if (WriteFile(hFile, (void*)buffer, fileSize * sizeof(char), &wroted, NULL)) {
+								MessageBox(hwnd, L"File successfully saved", L"Saved", MB_OK);
+								CloseHandle(hFile);
+							}
+							GlobalFree((HGLOBAL)buffer);
+						}
+					}
+
+				}
 			}
+			break;
 		}
 
 		default:
@@ -157,8 +172,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	{
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(hwnd, &ps);
-
-		// All painting occurs here, between BeginPaint and EndPaint.
 
 		FillRect(hdc, &ps.rcPaint, (HBRUSH)(COLOR_WINDOW + 1));
 
@@ -177,7 +190,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			CoUninitialize();
 			DestroyWindow(hwnd);
 		}
-		// Else: User canceled. Do nothing.
 		return 0;
 	}
 	return 0;
