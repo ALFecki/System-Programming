@@ -5,6 +5,7 @@
 #define ID_FILE_CREATE 9001
 #define ID_FILE_OPEN 9002
 #define ID_FILE_SAVE 9003
+#define ID_FONT_CHOOSE 9004
 
 #include <windows.h>
 #include <shobjidl.h> 
@@ -14,6 +15,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
+
+void FontChoice(HWND hwnd);
 
 HWND hWndEdit = NULL;
 
@@ -70,15 +73,21 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			DestroyWindow(hwnd);
 			return 0;
 		}
-		HMENU hMenu, hSubMenu;
+		HMENU hMenu, hFileSubMenu, hToolsSubMenu;
 
 		hMenu = CreateMenu();
-		hSubMenu = CreatePopupMenu();
-		AppendMenu(hSubMenu, MF_STRING, ID_FILE_CREATE, L"&Create");
-		AppendMenu(hSubMenu, MF_STRING, ID_FILE_OPEN, L"&Open");
-		AppendMenu(hSubMenu, MF_STRING, ID_FILE_SAVE, L"&Save");
-		AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT)hSubMenu, L"&File");
+		hFileSubMenu = CreatePopupMenu();
+		hToolsSubMenu = CreatePopupMenu();
+		AppendMenu(hFileSubMenu, MF_STRING, ID_FILE_CREATE, L"&Create");
+		AppendMenu(hFileSubMenu, MF_STRING, ID_FILE_OPEN, L"&Open");
+		AppendMenu(hFileSubMenu, MF_STRING, ID_FILE_SAVE, L"&Save");
+		AppendMenu(hMenu, MF_POPUP, (UINT)hFileSubMenu, L"&File");
+		AppendMenu(hToolsSubMenu, MF_STRING, ID_FONT_CHOOSE, L"&Font");
+		AppendMenu(hMenu, MF_POPUP, (UINT)hToolsSubMenu, L"&Tools");
+
+
 		SetMenu(hwnd, hMenu);
+
 		hWndEdit = CreateWindowEx(WS_EX_CLIENTEDGE, TEXT("Edit"), NULL,
 			WS_CHILD | WS_VSCROLL | WS_HSCROLL | ES_AUTOHSCROLL | ES_AUTOVSCROLL | ES_LEFT | ES_MULTILINE | ES_WANTRETURN | WS_VISIBLE,
 			0, 0, 780, 560, hwnd, NULL,
@@ -102,6 +111,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			SaveFile(hwnd);
 			break;
 
+		case ID_FONT_CHOOSE:
+			FontChoice(hwnd);
 
 		default:
 			break;
@@ -210,4 +221,20 @@ void SaveFile(HWND hwnd) {
 		}
 	}
 
+}
+
+void FontChoice(HWND hwnd) {
+	CHOOSEFONT cf = { sizeof(CHOOSEFONT) };
+	HFONT hf_ = (HFONT)SendMessage(hWndEdit, WM_GETFONT, 0, 0);
+	LOGFONT lf;
+	GetObject(hf_, sizeof(LOGFONT), &lf);
+	cf.Flags = CF_EFFECTS | CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT;
+	cf.hwndOwner = hwnd;
+	cf.lpLogFont = &lf;
+	if (!ChooseFont(&cf))
+		return;
+	HFONT hf = CreateFontIndirect(&lf);
+	if (hf) {
+		SendMessage(hWndEdit, WM_SETFONT, (WPARAM)hf, TRUE);
+	}
 }
