@@ -12,6 +12,9 @@
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+void OpenFile(HWND hwnd);
+void SaveFile(HWND hwnd);
+
 HWND hWndEdit = NULL;
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
@@ -26,13 +29,13 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	RegisterClass(&wc);
 
 	HWND hwnd = CreateWindowEx(
-		0,                              
-		CLASS_NAME,                     
-		L"Learn to Program Windows",    
-		WS_OVERLAPPEDWINDOW,        
+		0,
+		CLASS_NAME,
+		L"Learn to Program Windows",
+		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
-		NULL,       
-		NULL,       
+		NULL,
+		NULL,
 		hInstance,
 		NULL
 	);
@@ -86,85 +89,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	case WM_COMMAND:
 	{
 		switch (LOWORD(wParam)) {
-		case ID_FILE_OPEN:
-		{
-			IFileOpenDialog* pFileOpen;
-			HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
-				IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
-
-			if (SUCCEEDED(hr)) {
-				hr = pFileOpen->Show(NULL);
-
-				if (SUCCEEDED(hr)) {
-					IShellItem* pItem;
-					hr = pFileOpen->GetResult(&pItem);
-					if (SUCCEEDED(hr)) {
-						PWSTR pszFilePath;
-						hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
-
-						if (SUCCEEDED(hr)) {
-							HANDLE hFile = CreateFile(pszFilePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-							DWORD fileSize = GetFileSize(hFile, NULL);
-
-							LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize + 1);
-							DWORD read;
-
-							if (ReadFile(hFile, buffer, fileSize, &read, NULL)) {
-								SetWindowTextA(hWndEdit, buffer);
-							}
-							else {
-								MessageBoxA(hwnd, "Cannot read file", "Error", MB_OK);
-							}
-							GlobalFree((HGLOBAL)buffer);
-							ShowWindow(hWndEdit, SW_SHOW);
-							SetFocus(hWndEdit);
-							CloseHandle(hFile);
-						}
-						pItem->Release();
-					}
-				}
-				pFileOpen->Release();
-			}
-			break;
-		}
-
-		case ID_FILE_SAVE:
-		{
-			IFileSaveDialog* pFileSave;
-			HRESULT hr = CoCreateInstance(CLSID_FileSaveDialog, NULL, CLSCTX_ALL,
-				IID_IFileSaveDialog, reinterpret_cast<void**>(&pFileSave));
-			if (SUCCEEDED(hr)) {
-				hr = pFileSave->Show(NULL);
-				if (SUCCEEDED(hr)) {
-					IShellItem* pItem;
-					hr = pFileSave->GetResult(&pItem);
-					if (SUCCEEDED(hr)) {
-						PWSTR pszFilePath;
-						hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
-						if (SUCCEEDED(hr)) {
-							HANDLE hFile = CreateFile(pszFilePath, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-							DWORD fileSize = GetWindowTextLength(hWndEdit) + 1;
-							LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize);;
-							GetWindowTextA(hWndEdit, buffer, fileSize);
-							DWORD wroted;
-
-							if (WriteFile(hFile, (void*)buffer, fileSize, &wroted, NULL)) {
-								MessageBox(hwnd, L"File successfully saved", L"Saved", MB_OK);
-								CloseHandle(hFile);
-							}
-							GlobalFree((HGLOBAL)buffer);
-						}
-					}
-
-				}
-			}
-			break;
-		}
 
 		case ID_FILE_CREATE:
-		{
 			SetWindowTextA(hWndEdit, "");
-		}
+			break;
+
+		case ID_FILE_OPEN:
+			OpenFile(hwnd);
+			break;
+
+		case ID_FILE_SAVE:
+			SaveFile(hwnd);
+			break;
+
 
 		default:
 			break;
@@ -199,4 +136,78 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 	}
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+
+
+void OpenFile(HWND hwnd) {
+	IFileOpenDialog* pFileOpen;
+	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
+		IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
+
+	if (SUCCEEDED(hr)) {
+		hr = pFileOpen->Show(NULL);
+
+		if (SUCCEEDED(hr)) {
+			IShellItem* pItem;
+			hr = pFileOpen->GetResult(&pItem);
+			if (SUCCEEDED(hr)) {
+				PWSTR pszFilePath;
+				hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+
+				if (SUCCEEDED(hr)) {
+					HANDLE hFile = CreateFile(pszFilePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+					DWORD fileSize = GetFileSize(hFile, NULL);
+
+					LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize + 1);
+					DWORD read;
+
+					if (ReadFile(hFile, buffer, fileSize, &read, NULL)) {
+						SetWindowTextA(hWndEdit, buffer);
+					} else {
+						MessageBoxA(hwnd, "Cannot read file", "Error", MB_OK);
+					}
+					GlobalFree((HGLOBAL)buffer);
+					ShowWindow(hWndEdit, SW_SHOW);
+					SetFocus(hWndEdit);
+					CloseHandle(hFile);
+				}
+				pItem->Release();
+			}
+		}
+		pFileOpen->Release();
+	}
+}
+
+
+void SaveFile(HWND hwnd) {
+	IFileSaveDialog* pFileSave;
+	HRESULT hr = CoCreateInstance(CLSID_FileSaveDialog, NULL, CLSCTX_ALL,
+		IID_IFileSaveDialog, reinterpret_cast<void**>(&pFileSave));
+	if (SUCCEEDED(hr)) {
+		hr = pFileSave->Show(NULL);
+		if (SUCCEEDED(hr)) {
+			IShellItem* pItem;
+			hr = pFileSave->GetResult(&pItem);
+			if (SUCCEEDED(hr)) {
+				PWSTR pszFilePath;
+				hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+				if (SUCCEEDED(hr)) {
+					HANDLE hFile = CreateFile(pszFilePath, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+					DWORD fileSize = GetWindowTextLength(hWndEdit) + 1;
+					LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize);;
+					GetWindowTextA(hWndEdit, buffer, fileSize);
+					DWORD wroted;
+
+					if (WriteFile(hFile, (void*)buffer, fileSize, &wroted, NULL)) {
+						MessageBox(hwnd, L"File successfully saved", L"Saved", MB_OK);
+						CloseHandle(hFile);
+					}
+					GlobalFree((HGLOBAL)buffer);
+				}
+			}
+
+		}
+	}
+
 }
