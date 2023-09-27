@@ -2,8 +2,9 @@
 #define UNICODE
 #endif 
 
-#define ID_FILE_OPEN 9001
-#define ID_FILE_SAVE 9002
+#define ID_FILE_CREATE 9001
+#define ID_FILE_OPEN 9002
+#define ID_FILE_SAVE 9003
 
 #include <windows.h>
 #include <shobjidl.h> 
@@ -70,6 +71,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 		hMenu = CreateMenu();
 		hSubMenu = CreatePopupMenu();
+		AppendMenu(hSubMenu, MF_STRING, ID_FILE_CREATE, L"&Create");
 		AppendMenu(hSubMenu, MF_STRING, ID_FILE_OPEN, L"&Open");
 		AppendMenu(hSubMenu, MF_STRING, ID_FILE_SAVE, L"&Save");
 		AppendMenu(hMenu, MF_STRING | MF_POPUP, (UINT)hSubMenu, L"&File");
@@ -106,18 +108,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 							LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize + 1);
 							DWORD read;
-							size_t outSize;
-
 
 							if (ReadFile(hFile, buffer, fileSize, &read, NULL)) {
-								wchar_t* convertedBuffer = new wchar_t[read + 1];
-								mbstowcs_s(&outSize, convertedBuffer, read + 1, buffer, read);
-								SetWindowTextW(hWndEdit, convertedBuffer);
+								SetWindowTextA(hWndEdit, buffer);
 							}
 							else {
-								MessageBox(hwnd, L"Cannot read file", L"Error", MB_OK);
+								MessageBoxA(hwnd, "Cannot read file", "Error", MB_OK);
 							}
-
+							GlobalFree((HGLOBAL)buffer);
 							ShowWindow(hWndEdit, SW_SHOW);
 							SetFocus(hWndEdit);
 							CloseHandle(hFile);
@@ -146,11 +144,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 						if (SUCCEEDED(hr)) {
 							HANDLE hFile = CreateFile(pszFilePath, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
 							DWORD fileSize = GetWindowTextLength(hWndEdit) + 1;
-							LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize * sizeof(char));;
-							GetWindowTextA(hWndEdit, buffer, fileSize * sizeof(char));
+							LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize);;
+							GetWindowTextA(hWndEdit, buffer, fileSize);
 							DWORD wroted;
 
-							if (WriteFile(hFile, (void*)buffer, fileSize * sizeof(char), &wroted, NULL)) {
+							if (WriteFile(hFile, (void*)buffer, fileSize, &wroted, NULL)) {
 								MessageBox(hwnd, L"File successfully saved", L"Saved", MB_OK);
 								CloseHandle(hFile);
 							}
@@ -161,6 +159,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				}
 			}
 			break;
+		}
+
+		case ID_FILE_CREATE:
+		{
+			SetWindowTextA(hWndEdit, "");
 		}
 
 		default:
