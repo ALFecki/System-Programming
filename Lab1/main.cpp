@@ -8,6 +8,8 @@
 #define ID_FONT_CHOICE 9004
 #define ID_BG_CHOICE 9005
 
+// Макросы для распознавания конкретной команды из MenuBar'а
+
 #include <windows.h>
 #include <shobjidl.h> 
 #include <iostream>
@@ -39,7 +41,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	HWND hwnd = CreateWindowEx(
 		0,
 		CLASS_NAME,
-		L"Learn to Program Windows",
+		L"Notepad--",
 		WS_OVERLAPPEDWINDOW,
 		CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
 		NULL,
@@ -65,6 +67,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
+	
 	case WM_DESTROY:
 	{
 		PostQuitMessage(0);
@@ -72,14 +75,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	}
 	case WM_CREATE:
 	{
-		HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED |
-			COINIT_DISABLE_OLE1DDE);
+		HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
 		if (!SUCCEEDED(hr)) {
 			DestroyWindow(hwnd);
 			return 0;
 		}
 		HMENU hMenu, hFileSubMenu, hToolsSubMenu;
 
+		// Создание MenuBar
 		hMenu = CreateMenu();
 		hFileSubMenu = CreatePopupMenu();
 		hToolsSubMenu = CreatePopupMenu();
@@ -105,7 +108,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	case WM_COMMAND:
 	{
 		switch (LOWORD(wParam)) {
-
+		// Обработка сообщений из нажатых кнопок в меню
 		case ID_FILE_CREATE:
 			SetWindowTextA(hWndEdit, "");
 			break;
@@ -141,6 +144,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	}
 	case WM_SIZE:
 	{
+		// Растягивание окна текстового редактора совместно с растягиванием основного окна
 		MoveWindow(hWndEdit, 0, 0, LOWORD(lParam), HIWORD(lParam), false);
 		return 0;
 	}
