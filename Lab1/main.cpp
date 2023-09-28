@@ -5,6 +5,7 @@
 #define ID_FILE_CREATE 9001
 #define ID_FILE_OPEN 9002
 #define ID_FILE_SAVE 9003
+#define VK_A 0x41
 
 // ћакросы дл€ распознавани€ конкретной команды из MenuBar'а
 
@@ -13,11 +14,13 @@
 #include <iostream>
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+//LRESULT CALLBACK HotKeyProc(int nCode, WPARAM wParam, LPARAM lParam);
 
 void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
 
 HWND hWndEdit = NULL;
+//HHOOK hSelectHook = SetWindowsHookEx(WH_KEYBOARD_LL, HotKeyProc, NULL, 0);
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 	const wchar_t CLASS_NAME[] = L"Sample Window Class";
@@ -53,7 +56,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-
+	//UnhookWindowsHookEx(hSelectHook);
 	return 0;
 }
 
@@ -87,6 +90,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			0, 0, 780, 560, hwnd, NULL,
 			(HINSTANCE)GetWindowLong(hwnd, GWL_HINSTANCE),
 			NULL);
+		RegisterHotKey(hwnd, 1, MOD_CONTROL, VK_A);
 		return 0;
 	}
 	case WM_COMMAND:
@@ -104,7 +108,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		case ID_FILE_SAVE:
 			SaveFile(hwnd);
 			break;
-
 
 		default:
 			break;
@@ -128,6 +131,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		return 0;
 	}
 
+	case WM_HOTKEY:
+	{
+		if (wParam == 1) {
+			SendMessage(hWndEdit, EM_SETSEL, 0, GetWindowTextLength(hWndEdit));
+		}
+		break;
+	}
+
 	case WM_CLOSE:
 	{
 		if (MessageBox(hwnd, L"Really quit?", L"My application", MB_OKCANCEL) == IDOK) {
@@ -142,6 +153,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
+//LRESULT CALLBACK HotKeyProc(int nCode, WPARAM wParam, LPARAM lParam) {
+//	if (nCode == HC_ACTION) {
+//		if (LOWORD(lParam) == MOD_CONTROL && HIWORD(lParam) == 'A') {
+//		}
+//	}
+//	return CallNextHookEx(NULL, nCode, wParam, lParam);
+//}
 
 
 void OpenFile(HWND hwnd) {
