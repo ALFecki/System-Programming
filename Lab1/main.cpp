@@ -16,7 +16,7 @@
 #include <iostream>
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-//LRESULT CALLBACK HotKeyProc(int nCode, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK HotkeyProc(int nCode, WPARAM wParam, LPARAM lParam);
 
 void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
@@ -33,6 +33,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 	const wchar_t CLASS_NAME[] = L"Sample Window Class";
 
 	WNDCLASS wc = { };
+
+	HHOOK hHook = SetWindowsHookEx(WH_KEYBOARD_LL, HotkeyProc, NULL, 0);
 
 	wc.lpfnWndProc = WindowProc;
 	wc.hInstance = hInstance;
@@ -63,7 +65,30 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+	UnhookWindowsHookEx(hHook);
 	return 0;
+}
+
+UINT_PTR CALLBACK Lpcchookproc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	if (msg == WM_INITDIALOG) {
+		SetWindowPos(hWnd, HWND_TOPMOST, 400, 400, 0, 0, SWP_NOSIZE);
+	}
+	return 0;
+}
+
+
+LRESULT CALLBACK HotkeyProc(int nCode, WPARAM wParam, LPARAM lParam) {
+	if (nCode < 0)
+		return CallNextHookEx(NULL, nCode, wParam, lParam);
+	if (wParam == WM_KEYDOWN) {
+		if (nCode >= 0) {
+			KBDLLHOOKSTRUCT* pKeyboardHook = (KBDLLHOOKSTRUCT*)lParam;
+			if (pKeyboardHook->vkCode == 'S' && GetAsyncKeyState(VK_CONTROL) & 0x8000 && GetAsyncKeyState(VK_SHIFT) & 0x8000) {
+				MessageBox(NULL, L"Вы нажали Ctrl + Shift + S!", L"Горячая клавиша", MB_OK);
+			}
+		}
+	}
+	return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -125,6 +150,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 		case ID_FONT_CHOICE:
 			FontChoice(hwnd);
+			break;
 
 		case ID_BG_CHOICE:
 			BackgroundColor(hwnd);
@@ -155,6 +181,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	{
 		HDC hdc = (HDC)wParam;
 		SetTextColor(hdc, hEditFontColor);
+		SetBkColor(hdc, hEditBackgroundColor);
+		SetDCBrushColor(hdc, hEditBackgroundColor);
 		return (LRESULT)GetStockObject(DC_BRUSH);
 	}
 
@@ -162,22 +190,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	{
 		if (wParam == 1) {
 			SendMessage(hWndEdit, EM_SETSEL, 0, GetWindowTextLength(hWndEdit));
-		}
-		break;
-	}
-
-
-	case WM_CTLCOLORSTATIC:
-	{
-		HDC hdc = (HDC)wParam;
-		HWND hwnd = (HWND)lParam;
-
-		if (GetDlgCtrlID(hwnd) == GetDlgCtrlID(hWndEdit)) {
-			SetBkColor(hdc, hEditBackgroundColor); // Set to red
-			SetDCBrushColor(hdc, hEditBackgroundColor);
-			(LRESULT)GetStockObject(DC_BRUSH); // return a DC brush.
-		} else {
-			DefWindowProc(hwnd, uMsg, wParam, lParam);
 		}
 		break;
 	}
@@ -293,9 +305,12 @@ void BackgroundColor(HWND hwnd) {
 	chColor.rgbResult = hEditBackgroundColor;
 	chColor.Flags = CC_FULLOPEN | CC_RGBINIT;
 	chColor.hwndOwner = NULL;
+	chColor.lpfnHook = Lpcchookproc;
 	if (ChooseColor(&chColor)) {
 		hEditBackgroundColor = chColor.rgbResult;
-		SendMessage(hWndEdit, WM_CTLCOLORSTATIC, NULL, TRUE);
+		HWND hStatic = GetDlgItem(hwnd, GetDlgCtrlID(hWndEdit));
+		HDC hdcStatic = GetDC(hStatic);
+		SendMessage(hWndEdit, WM_CTLCOLOREDIT, (WPARAM)hdcStatic, (LPARAM)hStatic);
 	};
 
 }
