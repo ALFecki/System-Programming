@@ -174,8 +174,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 	case WM_CLOSE:
 	{
-		//if (MessageBox(hwnd, L"Really quit?", L"My application", MB_OKCANCEL) == IDOK) {
-		//}
 		CoUninitialize();
 		DestroyWindow(hwnd);
 		return 0;
