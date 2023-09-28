@@ -5,7 +5,8 @@
 #define ID_FILE_CREATE 9001
 #define ID_FILE_OPEN 9002
 #define ID_FILE_SAVE 9003
-#define ID_FONT_CHOOSE 9004
+#define ID_FONT_CHOICE 9004
+#define ID_BG_CHOICE 9005
 
 #include <windows.h>
 #include <shobjidl.h> 
@@ -17,8 +18,12 @@ void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
 
 void FontChoice(HWND hwnd);
+void BackgroundColor(HWND hwnd);
 
 HWND hWndEdit = NULL;
+COLORREF hEditFontColor = RGB(0, 0, 0);
+HFONT hEditFont = NULL;
+COLORREF hEditBackgroundColor = RGB(255, 255, 255);
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 	const wchar_t CLASS_NAME[] = L"Sample Window Class";
@@ -82,9 +87,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		AppendMenu(hFileSubMenu, MF_STRING, ID_FILE_OPEN, L"&Open");
 		AppendMenu(hFileSubMenu, MF_STRING, ID_FILE_SAVE, L"&Save");
 		AppendMenu(hMenu, MF_POPUP, (UINT)hFileSubMenu, L"&File");
-		AppendMenu(hToolsSubMenu, MF_STRING, ID_FONT_CHOOSE, L"&Font");
+		AppendMenu(hToolsSubMenu, MF_STRING, ID_FONT_CHOICE, L"&Font");
+		AppendMenu(hToolsSubMenu, MF_STRING, ID_BG_CHOICE, L"&Background");
 		AppendMenu(hMenu, MF_POPUP, (UINT)hToolsSubMenu, L"&Tools");
-
 
 		SetMenu(hwnd, hMenu);
 
@@ -93,6 +98,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			0, 0, 780, 560, hwnd, NULL,
 			(HINSTANCE)GetWindowLong(hwnd, GWL_HINSTANCE),
 			NULL);
+
+		hEditFont = (HFONT)SendMessage(hWndEdit, WM_GETFONT, 0, 0);
 		return 0;
 	}
 	case WM_COMMAND:
@@ -111,9 +118,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			SaveFile(hwnd);
 			break;
 
-		case ID_FONT_CHOOSE:
+		case ID_FONT_CHOICE:
 			FontChoice(hwnd);
 
+		case ID_BG_CHOICE:
+			BackgroundColor(hwnd);
+			break;
 		default:
 			break;
 		}
@@ -135,12 +145,35 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		return 0;
 	}
 
+	case WM_CTLCOLOREDIT:
+	{
+		HDC hdc = (HDC)wParam;
+		SetTextColor(hdc, hEditFontColor);
+		return (LRESULT)GetStockObject(DC_BRUSH);
+	}
+
+
+	case WM_CTLCOLORSTATIC:
+	{
+		HDC hdc = (HDC)wParam;
+		HWND hwnd = (HWND)lParam;
+
+		if (GetDlgCtrlID(hwnd) == GetDlgCtrlID(hWndEdit)) {
+			SetBkColor(hdc, hEditBackgroundColor); // Set to red
+			SetDCBrushColor(hdc, hEditBackgroundColor);
+			(LRESULT)GetStockObject(DC_BRUSH); // return a DC brush.
+		} else {
+			DefWindowProc(hwnd, uMsg, wParam, lParam);
+		}
+		break;
+	}
+
 	case WM_CLOSE:
 	{
-		if (MessageBox(hwnd, L"Really quit?", L"My application", MB_OKCANCEL) == IDOK) {
-			CoUninitialize();
-			DestroyWindow(hwnd);
-		}
+		//if (MessageBox(hwnd, L"Really quit?", L"My application", MB_OKCANCEL) == IDOK) {
+		//}
+		CoUninitialize();
+		DestroyWindow(hwnd);
 		return 0;
 	}
 	return 0;
@@ -225,16 +258,33 @@ void SaveFile(HWND hwnd) {
 
 void FontChoice(HWND hwnd) {
 	CHOOSEFONT cf = { sizeof(CHOOSEFONT) };
-	HFONT hf_ = (HFONT)SendMessage(hWndEdit, WM_GETFONT, 0, 0);
 	LOGFONT lf;
-	GetObject(hf_, sizeof(LOGFONT), &lf);
+	GetObject(hEditFont, sizeof(LOGFONT), &lf);
 	cf.Flags = CF_EFFECTS | CF_SCREENFONTS | CF_INITTOLOGFONTSTRUCT;
 	cf.hwndOwner = hwnd;
 	cf.lpLogFont = &lf;
+
 	if (!ChooseFont(&cf))
 		return;
 	HFONT hf = CreateFontIndirect(&lf);
+	hEditFontColor = cf.rgbColors;
 	if (hf) {
 		SendMessage(hWndEdit, WM_SETFONT, (WPARAM)hf, TRUE);
+		SendMessage(hWndEdit, WM_CTLCOLOREDIT, (WPARAM)hf, TRUE);
 	}
+}
+
+void BackgroundColor(HWND hwnd) {
+	CHOOSECOLOR chColor;
+	COLORREF acrCustClr[16];
+	chColor.lStructSize = sizeof(chColor);
+	chColor.lpCustColors = (LPDWORD)acrCustClr;
+	chColor.rgbResult = hEditBackgroundColor;
+	chColor.Flags = CC_FULLOPEN | CC_RGBINIT;
+	chColor.hwndOwner = NULL;
+	if (ChooseColor(&chColor)) {
+		hEditBackgroundColor = chColor.rgbResult;
+		SendMessage(hWndEdit, WM_CTLCOLORSTATIC, NULL, TRUE);
+	};
+
 }
