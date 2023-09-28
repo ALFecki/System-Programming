@@ -5,6 +5,7 @@
 #define ID_FILE_CREATE 9001
 #define ID_FILE_OPEN 9002
 #define ID_FILE_SAVE 9003
+#define VK_A 0x41
 #define ID_FONT_CHOICE 9004
 #define ID_BG_CHOICE 9005
 
@@ -15,6 +16,7 @@
 #include <iostream>
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+//LRESULT CALLBACK HotKeyProc(int nCode, WPARAM wParam, LPARAM lParam);
 
 void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
@@ -61,13 +63,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-
 	return 0;
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
-	
+
 	case WM_DESTROY:
 	{
 		PostQuitMessage(0);
@@ -103,12 +104,13 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			NULL);
 
 		hEditFont = (HFONT)SendMessage(hWndEdit, WM_GETFONT, 0, 0);
+		RegisterHotKey(hwnd, 1, MOD_CONTROL, VK_A);
 		return 0;
 	}
 	case WM_COMMAND:
 	{
 		switch (LOWORD(wParam)) {
-		// Обработка сообщений из нажатых кнопок в меню
+			// Обработка сообщений из нажатых кнопок в меню
 		case ID_FILE_CREATE:
 			SetWindowTextA(hWndEdit, "");
 			break;
@@ -156,6 +158,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		return (LRESULT)GetStockObject(DC_BRUSH);
 	}
 
+	case WM_HOTKEY:
+	{
+		if (wParam == 1) {
+			SendMessage(hWndEdit, EM_SETSEL, 0, GetWindowTextLength(hWndEdit));
+		}
+		break;
+	}
+
 
 	case WM_CTLCOLORSTATIC:
 	{
@@ -183,7 +193,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	}
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
-
 
 
 void OpenFile(HWND hwnd) {
