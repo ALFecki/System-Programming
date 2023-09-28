@@ -20,7 +20,6 @@ void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
 
 HWND hWndEdit = NULL;
-//HHOOK hSelectHook = SetWindowsHookEx(WH_KEYBOARD_LL, HotKeyProc, NULL, 0);
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 	const wchar_t CLASS_NAME[] = L"Sample Window Class";
@@ -56,13 +55,12 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-	//UnhookWindowsHookEx(hSelectHook);
 	return 0;
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
-	
+
 	case WM_DESTROY:
 	{
 		PostQuitMessage(0);
@@ -96,7 +94,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	case WM_COMMAND:
 	{
 		switch (LOWORD(wParam)) {
-		// Обработка сообщений из нажатых кнопок в меню
+			// Обработка сообщений из нажатых кнопок в меню
 		case ID_FILE_CREATE:
 			SetWindowTextA(hWndEdit, "");
 			break;
@@ -141,10 +139,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 	case WM_CLOSE:
 	{
-		if (MessageBox(hwnd, L"Really quit?", L"My application", MB_OKCANCEL) == IDOK) {
-			CoUninitialize();
-			DestroyWindow(hwnd);
-		}
+		CoUninitialize();
+		DestroyWindow(hwnd);
 		return 0;
 	}
 	return 0;
@@ -152,14 +148,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	}
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
-
-//LRESULT CALLBACK HotKeyProc(int nCode, WPARAM wParam, LPARAM lParam) {
-//	if (nCode == HC_ACTION) {
-//		if (LOWORD(lParam) == MOD_CONTROL && HIWORD(lParam) == 'A') {
-//		}
-//	}
-//	return CallNextHookEx(NULL, nCode, wParam, lParam);
-//}
 
 
 void OpenFile(HWND hwnd) {
