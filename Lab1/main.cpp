@@ -181,8 +181,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	{
 		HDC hdc = (HDC)wParam;
 		SetTextColor(hdc, hEditFontColor);
-		SetBkColor(hdc, hEditBackgroundColor);
 		SetDCBrushColor(hdc, hEditBackgroundColor);
+		SetBkColor(hdc, hEditBackgroundColor);
 		return (LRESULT)GetStockObject(DC_BRUSH);
 	}
 
@@ -308,9 +308,9 @@ void BackgroundColor(HWND hwnd) {
 	chColor.lpfnHook = Lpcchookproc;
 	if (ChooseColor(&chColor)) {
 		hEditBackgroundColor = chColor.rgbResult;
-		HWND hStatic = GetDlgItem(hwnd, GetDlgCtrlID(hWndEdit));
-		HDC hdcStatic = GetDC(hStatic);
-		SendMessage(hWndEdit, WM_CTLCOLOREDIT, (WPARAM)hdcStatic, (LPARAM)hStatic);
+		HBRUSH hBrush = CreateSolidBrush(hEditBackgroundColor);
+		SetClassLongPtr(hWndEdit, GCLP_HBRBACKGROUND, reinterpret_cast<LONG_PTR>(hBrush));
+		InvalidateRect(hWndEdit, nullptr, TRUE);
 	};
 
 }
