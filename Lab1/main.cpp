@@ -14,10 +14,14 @@
 #include <windows.h>
 #include <shobjidl.h> 
 #include <iostream>
+#include <optional>
+#include <utility>
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK HotkeyProc(int nCode, WPARAM wParam, LPARAM lParam);
 
+std::optional<std::tuple<HANDLE, HANDLE, LPVOID>> InitializeMapping(PWSTR pszFilePath, DWORD dwFileSize);
+void UnitializeMapping(HANDLE hFile, HANDLE hMapFile, LPVOID lpData);
 void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
 
@@ -212,72 +216,123 @@ void OpenFile(HWND hwnd) {
 	HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, NULL, CLSCTX_ALL,
 		IID_IFileOpenDialog, reinterpret_cast<void**>(&pFileOpen));
 
-	if (SUCCEEDED(hr)) {
-		hr = pFileOpen->Show(NULL);
+	if (!SUCCEEDED(hr)) {
 
-		if (SUCCEEDED(hr)) {
-			IShellItem* pItem;
-			hr = pFileOpen->GetResult(&pItem);
-			if (SUCCEEDED(hr)) {
-				PWSTR pszFilePath;
-				hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
-
-				if (SUCCEEDED(hr)) {
-					HANDLE hFile = CreateFile(pszFilePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-					DWORD fileSize = GetFileSize(hFile, NULL);
-
-					LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize + 1);
-					DWORD read;
-
-					if (ReadFile(hFile, buffer, fileSize, &read, NULL)) {
-						SetWindowTextA(hWndEdit, buffer);
-					} else {
-						MessageBoxA(hwnd, "Cannot read file", "Error", MB_OK);
-					}
-					GlobalFree((HGLOBAL)buffer);
-					ShowWindow(hWndEdit, SW_SHOW);
-					SetFocus(hWndEdit);
-					CloseHandle(hFile);
-				}
-				pItem->Release();
-			}
-		}
-		pFileOpen->Release();
 	}
+	hr = pFileOpen->Show(NULL);
+
+	if (SUCCEEDED(hr)) {
+		IShellItem* pItem;
+		hr = pFileOpen->GetResult(&pItem);
+		if (SUCCEEDED(hr)) {
+			PWSTR pszFilePath;
+			hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+
+			if (SUCCEEDED(hr)) {
+				HANDLE hFile = CreateFile(pszFilePath, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+				DWORD fileSize = GetFileSize(hFile, NULL);
+
+				LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize + 1);
+				DWORD read;
+
+				if (ReadFile(hFile, buffer, fileSize, &read, NULL)) {
+					SetWindowTextA(hWndEdit, buffer);
+				} else {
+					MessageBoxA(hwnd, "Cannot read file", "Error", MB_OK);
+				}
+				GlobalFree((HGLOBAL)buffer);
+				ShowWindow(hWndEdit, SW_SHOW);
+				SetFocus(hWndEdit);
+				CloseHandle(hFile);
+			}
+			pItem->Release();
+		}
+	}
+	pFileOpen->Release();
 }
+
 
 
 void SaveFile(HWND hwnd) {
 	IFileSaveDialog* pFileSave;
 	HRESULT hr = CoCreateInstance(CLSID_FileSaveDialog, NULL, CLSCTX_ALL,
 		IID_IFileSaveDialog, reinterpret_cast<void**>(&pFileSave));
-	if (SUCCEEDED(hr)) {
-		hr = pFileSave->Show(NULL);
-		if (SUCCEEDED(hr)) {
-			IShellItem* pItem;
-			hr = pFileSave->GetResult(&pItem);
-			if (SUCCEEDED(hr)) {
-				PWSTR pszFilePath;
-				hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
-				if (SUCCEEDED(hr)) {
-					HANDLE hFile = CreateFile(pszFilePath, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-					DWORD fileSize = GetWindowTextLength(hWndEdit) + 1;
-					LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, fileSize);;
-					GetWindowTextA(hWndEdit, buffer, fileSize);
-					DWORD wroted;
-
-					if (WriteFile(hFile, (void*)buffer, fileSize, &wroted, NULL)) {
-						MessageBox(hwnd, L"File successfully saved", L"Saved", MB_OK);
-						CloseHandle(hFile);
-					}
-					GlobalFree((HGLOBAL)buffer);
-				}
-			}
-
-		}
+	if (!SUCCEEDED(hr)) {
+		MessageBoxA(hwnd, "File dialog open failed", "Failed", MB_ICONERROR);
+		return;
+	}
+	hr = pFileSave->Show(NULL);
+	if (!SUCCEEDED(hr)) {
+		MessageBoxA(hwnd, "File dialog open show failed", "Failed", MB_ICONERROR);
+		return;
+	}
+	IShellItem* pItem;
+	hr = pFileSave->GetResult(&pItem);
+	if (!SUCCEEDED(hr)) {
+		MessageBoxA(hwnd, "Failed to get result from file dialog", "Failed", MB_ICONERROR);
+		return;
 	}
 
+	PWSTR pszFilePath;
+	hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
+	if (!SUCCEEDED(hr)) {
+		MessageBoxA(hwnd, "Failed to get file path", "Failed", MB_ICONERROR);
+		return;
+	}
+	DWORD dwFileSize = GetWindowTextLength(hWndEdit) + 1;
+	auto resultInitialize = InitializeMapping(pszFilePath, dwFileSize);
+	if (!resultInitialize) {
+		return;
+	}
+	auto [hFile, hMapFile, lpData] = *resultInitialize;
+
+	LPSTR buffer = (LPSTR)GlobalAlloc(GPTR, dwFileSize);;
+	GetWindowTextA(hWndEdit, buffer, dwFileSize);
+
+	if (memcpy((CHAR*)lpData, buffer, dwFileSize)) {
+		MessageBoxA(hwnd, "File successfully saved", "Saved", MB_OK);
+	} else {
+		MessageBoxA(hwnd, "File save failed", "Failed", MB_ICONERROR);
+	}
+	UnitializeMapping(hFile, hMapFile, lpData);
+	GlobalFree((HGLOBAL)buffer);
 }
+
+
+std::optional<std::tuple<HANDLE, HANDLE, LPVOID>> InitializeMapping(PWSTR pszFilePath, DWORD dwFileSize) {
+	HANDLE hFile = CreateFile(pszFilePath, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hFile == INVALID_HANDLE_VALUE) {
+		MessageBoxA(NULL, "Error creating file", "Error", MB_ICONERROR);
+		return {};
+	}
+	HANDLE hMapFile = CreateFileMapping(hFile, NULL, PAGE_READWRITE, 0, dwFileSize, NULL);
+
+	if (hMapFile == NULL) {
+		MessageBoxA(NULL, "Error creating mapping", "Error", MB_ICONERROR);
+		UnitializeMapping(hFile, INVALID_HANDLE_VALUE, NULL);
+		return {};
+	}
+	LPVOID lpData = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, dwFileSize);
+	if (lpData == NULL) {
+		MessageBoxA(NULL, "Error creating mapping view", "Error", MB_ICONERROR);
+		UnitializeMapping(hFile, hMapFile, NULL);
+		return {};
+	}
+	return { { hFile, hMapFile,  lpData} };
+}
+
+void UnitializeMapping(HANDLE hFile, HANDLE hMapFile, LPVOID lpData) {
+	if (lpData != NULL) {
+		UnmapViewOfFile(lpData);
+	}
+	if (hMapFile != INVALID_HANDLE_VALUE) {
+		CloseHandle(hMapFile);
+	}
+	if (hFile != INVALID_HANDLE_VALUE) {
+		CloseHandle(hFile);
+	}
+}
+
 
 void FontChoice(HWND hwnd) {
 	CHOOSEFONT cf = { sizeof(CHOOSEFONT) };
