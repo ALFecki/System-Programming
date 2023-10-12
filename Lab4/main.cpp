@@ -15,9 +15,14 @@ HWND buttonSuspend = NULL;
 HWND buttonResume = NULL;
 
 DWORD selectedPId = -1;
-std::regex processRegex("\((\d+)\)");
+std::regex processRegex("\((\\d+)\)");
 
-// Обработчик сообщений окна
+VOID showErrorAndExit(const char* errorMessage);
+VOID suspendProcess(DWORD processId);
+VOID resumeProcess(DWORD processId);
+VOID terminateProcess(DWORD processId);
+VOID getProcessList(HWND hwndList);
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 	switch (uMsg) {
 
@@ -32,7 +37,12 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			10, 19, 100, 30, hwnd, (HMENU)IDC_TERMINATE_BUTTON, (HINSTANCE)GetWindowLong(hwnd, GWL_HINSTANCE), NULL
 		);
 
-		buttonSuspend= CreateWindow(
+		if (buttonTerminate == NULL) {
+			MessageBoxA(NULL, "Failed to create terminate button", "Error", MB_OK | MB_ICONERROR);
+			return 0;
+		}
+
+		buttonSuspend = CreateWindow(
 			L"BUTTON",
 			L"Suspend",
 			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
@@ -43,9 +53,14 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			NULL
 		);
 
+		if (buttonSuspend == NULL) {
+			MessageBoxA(NULL, "Failed to create suspend button", "Error", MB_OK | MB_ICONERROR);
+			return 0;
+		}
+
 		buttonResume = CreateWindow(
 			L"BUTTON",
-			L"Button 3",
+			L"Resume",
 			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
 			230, 10, 100, 30,
 			hwnd,
@@ -54,6 +69,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			NULL
 		);
 
+		if (buttonResume == NULL) {
+			MessageBoxA(NULL, "Failed to create resume button", "Error", MB_OK | MB_ICONERROR);
+			return 0;
+		}
 
 		hwndList = CreateWindowEx(
 			0,
@@ -87,7 +106,9 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 	case WM_COMMAND:
 	{
-		if (HIWORD(wParam) == LBN_SELCHANGE) {
+		switch (HIWORD(wParam)) {
+		case LBN_SELCHANGE:
+		{
 			int selectedIndex = SendMessage(hwndList, LB_GETCURSEL, 0, 0);
 			if (selectedIndex != LB_ERR) {
 				int textLen = SendMessage(hwndList, LB_GETTEXTLEN, (WPARAM)selectedIndex, 0);
@@ -97,14 +118,37 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				std::string res1(res.begin(), res.end());
 				std::cmatch m;
 				if (std::regex_search(res1.c_str(), m, processRegex)) {
-					res1 = "1";
+					selectedPId = atoi(m.str(1).c_str());
 				}
-				auto words_begin = std::sregex_iterator(res1.begin(), res1.end(), processRegex);
-				auto words_end = std::sregex_iterator();
-				selectedPId = atoi((*(++words_begin)).str().c_str());
+			}
+			return 0;
+		}
+
+		case BN_CLICKED:
+		{
+			if ((HWND)lParam == buttonTerminate) {
+				if (selectedPId == -1) {
+					MessageBoxA(NULL, "Choose process!", "Error", MB_OK | MB_ICONERROR);
+					return 0;
+				}
+				terminateProcess(selectedPId);
+			} else if ((HWND)lParam == buttonSuspend) {
+				if (selectedPId == -1) {
+					MessageBoxA(NULL, "Choose process!", "Error", MB_OK | MB_ICONERROR);
+					return 0;
+				}
+				suspendProcess(selectedPId);
+			} else if ((HWND)lParam == buttonResume) {
+				if (selectedPId == -1) {
+					MessageBoxA(NULL, "Choose process!", "Error", MB_OK | MB_ICONERROR);
+					return 0;
+				}
+				resumeProcess(selectedPId);
 			}
 		}
+		}
 		return 0;
+
 	}
 
 	case WM_SIZE:
@@ -132,80 +176,119 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		return DefWindowProc(hwnd, uMsg, wParam, lParam);
 	}
 }
-// Функция для вывода сообщения об ошибке и завершения приложения
+
+
 VOID showErrorAndExit(const char* errorMessage) {
 	MessageBoxA(NULL, errorMessage, "Error", MB_OK | MB_ICONERROR);
-	exit(EXIT_FAILURE);
 }
 
-// Функция для приостановки процесса по его идентификатору
 VOID suspendProcess(DWORD processId) {
-	HANDLE hProcess = OpenProcess(PROCESS_SUSPEND_RESUME, FALSE, processId);
-	if (hProcess == NULL) {
+	HANDLE hThreadSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (hThreadSnapshot == NULL) {
 		showErrorAndExit("Failed to open process");
+		return;
 	}
+	THREADENTRY32 threadEntry;
+	threadEntry.dwSize = sizeof(THREADENTRY32);
 
-	if (SuspendThread(hProcess) == (DWORD)-1) {
-		showErrorAndExit("Failed to suspend process");
-	}
+	Thread32First(hThreadSnapshot, &threadEntry);
 
-	CloseHandle(hProcess);
+	do {
+		if (threadEntry.th32OwnerProcessID == processId) {
+			HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE,
+				threadEntry.th32ThreadID);
+			if (hThread == NULL) {
+				showErrorAndExit("Failed to open process");
+				return;
+			}
+
+			SuspendThread(hThread);
+			CloseHandle(hThread);
+		}
+	} while (Thread32Next(hThreadSnapshot, &threadEntry));
+
+	CloseHandle(hThreadSnapshot);
+	getProcessList(hwndList);
 }
 
-// Функция для возобновления процесса по его идентификатору
 VOID resumeProcess(DWORD processId) {
-	HANDLE hProcess = OpenProcess(PROCESS_SUSPEND_RESUME, FALSE, processId);
-	if (hProcess == NULL) {
+	HANDLE hThreadSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (hThreadSnapshot == NULL) {
 		showErrorAndExit("Failed to open process");
+		return;
 	}
+	THREADENTRY32 threadEntry;
+	threadEntry.dwSize = sizeof(THREADENTRY32);
 
-	if (ResumeThread(hProcess) == (DWORD)-1) {
-		showErrorAndExit("Failed to resume process");
-	}
+	Thread32First(hThreadSnapshot, &threadEntry);
 
-	CloseHandle(hProcess);
+	do {
+		if (threadEntry.th32OwnerProcessID == processId) {
+			HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE,
+				threadEntry.th32ThreadID);
+			if (hThread == NULL) {
+				showErrorAndExit("Failed to open process");
+				return;
+			}
+
+			ResumeThread(hThread);
+			CloseHandle(hThread);
+		}
+	} while (Thread32Next(hThreadSnapshot, &threadEntry));
+
+	CloseHandle(hThreadSnapshot);
+	getProcessList(hwndList);
 }
 
-// Функция для завершения процесса по его идентификатору
 VOID terminateProcess(DWORD processId) {
-	HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, processId);
-	if (hProcess == NULL) {
+	HANDLE hThreadSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+	if (hThreadSnapshot == NULL) {
 		showErrorAndExit("Failed to open process");
+		return;
 	}
+	THREADENTRY32 threadEntry;
+	threadEntry.dwSize = sizeof(THREADENTRY32);
 
-	if (!TerminateProcess(hProcess, 0)) {
-		showErrorAndExit("Failed to terminate process");
-	}
+	Thread32First(hThreadSnapshot, &threadEntry);
 
-	CloseHandle(hProcess);
+	do {
+		if (threadEntry.th32OwnerProcessID == processId) {
+			HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE,
+				threadEntry.th32ThreadID);
+			if (hThread == NULL) {
+				showErrorAndExit("Failed to open process");
+				return;
+			}
+
+			TerminateThread(hThread, 0);
+			CloseHandle(hThread);
+		}
+	} while (Thread32Next(hThreadSnapshot, &threadEntry));
+
+	CloseHandle(hThreadSnapshot);
+	getProcessList(hwndList);
 }
 
 
+VOID getProcessList(HWND hwndList) {
 
-// Функция для получения списка процессов
-VOID GetProcessList(HWND hwndList) {
-	// Открываем снимок состояния процессов
 	HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	if (hSnapshot == INVALID_HANDLE_VALUE) {
 		MessageBoxA(NULL, "Failed to create process snapshot", "Error", MB_OK | MB_ICONERROR);
 		return;
 	}
 
-	// Заполняем структуру с информацией о процессе
 	PROCESSENTRY32 pe32;
 	pe32.dwSize = sizeof(PROCESSENTRY32);
 
-	// Получаем первый процесс в снимке состояния
 	if (!Process32First(hSnapshot, &pe32)) {
 		CloseHandle(hSnapshot);
 		MessageBoxA(NULL, "Failed to retrieve process information", "Error", MB_OK | MB_ICONERROR);
 		return;
 	}
 
-	// Очищаем список
 	SendMessage(hwndList, LB_RESETCONTENT, 0, 0);
 
-	// Добавляем идентификаторы и имена процессов в список
 	do {
 		std::wstring processName = std::wstring(pe32.szExeFile) + L" (" + std::to_wstring(pe32.th32ProcessID) + L")";
 
@@ -214,12 +297,10 @@ VOID GetProcessList(HWND hwndList) {
 		SendMessageW(hwndList, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(processName.c_str()));
 	} while (Process32Next(hSnapshot, &pe32));
 
-	// Закрываем дескриптор снимка состояния
 	CloseHandle(hSnapshot);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-	// Регистрируем класс окна
 	const wchar_t CLASS_NAME[] = L"ProcessListWindowClass";
 
 	WNDCLASS wc = {};
@@ -229,7 +310,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	RegisterClass(&wc);
 
-	// Создаем окно
 	HWND hwnd = CreateWindowEx(
 		0,
 		CLASS_NAME,
@@ -247,13 +327,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		return 0;
 	}
 
-	// Получаем список процессов и добавляем его в список
-	GetProcessList(hwndList);
+	getProcessList(hwndList);
 
-	// Отображаем окно
 	ShowWindow(hwnd, nCmdShow);
 
-	// Запускаем цикл обработки сообщений
 	MSG msg = {};
 	while (GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
