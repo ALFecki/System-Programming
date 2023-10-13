@@ -3,7 +3,6 @@
 #include <string>
 #include <regex>
 
-// Идентификатор элемента управления списка
 #define IDC_PROCESS_LIST 1001
 #define IDC_TERMINATE_BUTTON 1002
 #define IDC_SUSPEND_BUTTON 1003
@@ -313,9 +312,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	HWND hwnd = CreateWindowEx(
 		0,
 		CLASS_NAME,
-		L"Process List",
+		L"Process Manager",
 		WS_OVERLAPPEDWINDOW,
-		CW_USEDEFAULT, CW_USEDEFAULT, 800, 600,
+		CW_USEDEFAULT, 
+		CW_USEDEFAULT, 
+		800, 600,
 		NULL,
 		NULL,
 		hInstance,
