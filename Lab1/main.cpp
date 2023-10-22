@@ -112,7 +112,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 		}
 		HMENU hMenu, hFileSubMenu, hToolsSubMenu;
 
-		// —оздание MenuBar
 		hMenu = CreateMenu();
 		hFileSubMenu = CreatePopupMenu();
 		hToolsSubMenu = CreatePopupMenu();
@@ -139,7 +138,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	case WM_COMMAND:
 	{
 		switch (LOWORD(wParam)) {
-			// ќбработка сообщений из нажатых кнопок в меню
 		case ID_FILE_CREATE:
 			SetWindowTextA(hWndEdit, "");
 			break;
@@ -176,7 +174,6 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	}
 	case WM_SIZE:
 	{
-		// –аст€гивание окна текстового редактора совместно с раст€гиванием основного окна
 		MoveWindow(hWndEdit, 0, 0, LOWORD(lParam), HIWORD(lParam), false);
 		return 0;
 	}
