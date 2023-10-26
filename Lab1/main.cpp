@@ -16,12 +16,19 @@
 #include <iostream>
 #include <optional>
 #include <utility>
+#include <tchar.h>
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK HotkeyProc(int nCode, WPARAM wParam, LPARAM lParam);
 
 std::optional<std::tuple<HANDLE, HANDLE, LPVOID>> InitializeMapping(PWSTR pszFilePath, DWORD openFlag, DWORD dwFileSize = NULL);
 void UnitializeMapping(HANDLE hFile, HANDLE hMapFile, LPVOID lpData);
+
+BOOL ReadRegistryValue(HKEY hKey, LPCWSTR subKey, LPCWSTR valueName, LPWSTR& valueBuffer);
+BOOL WriteRegistryValue(HKEY hKey, LPCWSTR subKey, LPCWSTR valueName, LPCWSTR valueData);
+
+void LogAction(HWND hwnd, WORD eventLogType, LPCWSTR msg);
+
 void OpenFile(HWND hwnd);
 void SaveFile(HWND hwnd);
 
@@ -35,6 +42,16 @@ COLORREF hEditBackgroundColor = RGB(255, 255, 255);
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
 	const wchar_t CLASS_NAME[] = L"Sample Window Class";
+
+	LPCWSTR subKey = L"Software\\Notepad--";
+	LPCWSTR valueName = L"Encoding";
+	LPCWSTR valueData = L"UTF-8";
+
+	if (WriteRegistryValue(HKEY_CURRENT_USER, subKey, valueName, valueData)) {
+		LogAction(NULL, EVENTLOG_INFORMATION_TYPE, (L"Кодировка проверена и записана в регистр"));
+	} else {
+		MessageBox(NULL, L"Cannot check register values", L"Error!", MB_OK);
+	}
 
 	WNDCLASS wc = { };
 
@@ -133,6 +150,17 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 
 		hEditFont = (HFONT)SendMessage(hWndEdit, WM_GETFONT, 0, 0);
 		RegisterHotKey(hwnd, 1, MOD_CONTROL, VK_A);
+
+		LPCWSTR subKey = L"Software\\Notepad--";
+		LPCWSTR valueName = L"Encoding";
+		LPWSTR buf = nullptr;
+
+		if (ReadRegistryValue(HKEY_CURRENT_USER, subKey, valueName, buf)) {
+			MessageBox(hwnd, (L"Editor encoding " + std::wstring(buf)).c_str(), L"ENCODING", MB_OK);
+		} else {
+			MessageBox(hwnd, L"Cannot read encoding", L"ENCODING", MB_ICONERROR);
+		}
+		delete[] buf;
 		return 0;
 	}
 	case WM_COMMAND:
@@ -207,6 +235,72 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 	return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }
 
+BOOL WriteRegistryValue(HKEY hKey, LPCWSTR subKey, LPCWSTR valueName, LPCWSTR valueData) {
+	HKEY hSubKey;
+	if (RegCreateKeyEx(hKey, subKey, 0, NULL, REG_OPTION_NON_VOLATILE, KEY_SET_VALUE, NULL, &hSubKey, NULL) != ERROR_SUCCESS) {
+		return false;
+	}
+
+	DWORD valueType;
+	DWORD dataSize = 0;
+	if (RegQueryValueEx(hSubKey, valueName, NULL, &valueType, NULL, &dataSize) == ERROR_SUCCESS) {
+		if (valueType == REG_SZ) {
+			return true;
+		} else {
+			RegCloseKey(hSubKey);
+			return false;
+		}
+	}
+
+	if (RegSetValueEx(hSubKey, valueName, 0, REG_SZ, (BYTE*)valueData, (wcslen(valueData) + 1) * sizeof(WCHAR)) != ERROR_SUCCESS) {
+		RegCloseKey(hSubKey);
+		return false;
+	}
+
+	RegCloseKey(hSubKey);
+	return true;
+}
+
+
+BOOL ReadRegistryValue(HKEY hKey, LPCWSTR subKey, LPCWSTR valueName, LPWSTR& valueBuffer) {
+	HKEY hSubKey;
+	if (RegOpenKeyEx(hKey, subKey, 0, KEY_QUERY_VALUE, &hSubKey) != ERROR_SUCCESS) {
+		return false;
+	}
+
+	DWORD dataSize = 0;
+	if (RegQueryValueEx(hSubKey, valueName, NULL, NULL, NULL, &dataSize) != ERROR_SUCCESS) {
+		RegCloseKey(hSubKey);
+		return false;
+	}
+
+	valueBuffer = new WCHAR[dataSize / sizeof(WCHAR)];
+
+	if (RegQueryValueEx(hSubKey, valueName, NULL, NULL, (LPBYTE)valueBuffer, &dataSize) != ERROR_SUCCESS) {
+		RegCloseKey(hSubKey);
+		delete[] valueBuffer;
+		return false;
+	}
+
+	RegCloseKey(hSubKey);
+	return true;
+}
+
+
+void LogAction(HWND hwnd, WORD eventLogType, LPCWSTR msg) {
+	HANDLE hEventLog = OpenEventLog(NULL, L"Application");
+	if (hEventLog == NULL) {
+		MessageBox(hwnd, L"Cannot open event log", L"Error", MB_OK);
+	}
+
+	LPCTSTR msgStrings[1];
+	msgStrings[0] = msg;
+	if (!ReportEvent(hEventLog, eventLogType, 0, 666, NULL, 1, 0, msgStrings, NULL)) {
+		MessageBox(hwnd, L"Cannot write log", L"Error", MB_OK);
+	}
+	CloseEventLog(hEventLog);
+}
+
 
 void OpenFile(HWND hwnd) {
 	IFileOpenDialog* pFileOpen;
@@ -229,7 +323,7 @@ void OpenFile(HWND hwnd) {
 		pFileOpen->Release();
 		return;
 	}
-	PWSTR pszFilePath;
+	LPWSTR pszFilePath;
 	hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pszFilePath);
 
 	if (!SUCCEEDED(hr)) {
@@ -238,6 +332,7 @@ void OpenFile(HWND hwnd) {
 		return;
 	}
 	auto resultInitialize = InitializeMapping(pszFilePath, OPEN_EXISTING);
+	LogAction(hwnd, EVENTLOG_INFORMATION_TYPE, (L"Открыт файл " + std::wstring(pszFilePath)).c_str());
 
 	if (!resultInitialize) {
 		return;
@@ -249,6 +344,7 @@ void OpenFile(HWND hwnd) {
 	if (memcpy((CHAR*)buffer, lpData, fileSize)) {
 		SetWindowTextA(hWndEdit, buffer);
 	} else {
+		LogAction(hwnd, EVENTLOG_ERROR_TYPE, (L"Не удалось открыть файл " + std::wstring(pszFilePath)).c_str());
 		MessageBoxA(hwnd, "Cannot read file", "Error", MB_OK);
 	}
 	GlobalFree((HGLOBAL)buffer);
@@ -295,8 +391,10 @@ void SaveFile(HWND hwnd) {
 	GetWindowTextA(hWndEdit, buffer, dwFileSize);
 
 	if (memcpy((CHAR*)lpData, buffer, dwFileSize)) {
+		LogAction(hwnd, EVENTLOG_INFORMATION_TYPE, (L"Сохранен файл " + std::wstring(pszFilePath)).c_str());
 		MessageBoxA(hwnd, "File successfully saved", "Saved", MB_OK);
 	} else {
+		LogAction(hwnd, EVENTLOG_ERROR_TYPE, (L"Не удалось сохранить файл " + std::wstring(pszFilePath)).c_str());
 		MessageBoxA(hwnd, "File save failed", "Failed", MB_ICONERROR);
 	}
 	UnitializeMapping(hFile, hMapFile, lpData);
