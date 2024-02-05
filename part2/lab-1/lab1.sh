@@ -47,14 +47,10 @@ fi
 
 calculate_checksum() {
     local file="$1"
-    local sum=0
+    
+    checksum=$(md5sum "$1" | awk '{print $1}')
 
-    while IFS= read -r -n1 byte; do
-        byte_value=$(printf "%d" "'$byte")
-        ((sum += byte_value))
-    done < "$file"
-
-    echo "$sum"
+    echo "$checksum"
 }
 
 traverse_directory() {
@@ -86,6 +82,21 @@ traverse_directory() {
 
 traverse_directory "$path"
 
-echo "Done! You can check results in output.txt."
+echo "Search completed! You can check results in output.txt."
+
+echo "Enter file name, which you want to cat: "
+
+read filename
+
+if [ -f "$filename" ]; then
+    clear
+    lineNumber=1
+    while IFS= read -r line; do
+        printf "%-5s %s\n" "$lineNumber:" "$line"
+        lineNumber=$((lineNumber+1))
+    done < "$filename"
+else
+    echo "$filename: no such file or directory."
+fi
 
 exit 0
