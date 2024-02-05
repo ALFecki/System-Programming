@@ -71,14 +71,10 @@ traverse_directory() {
         fi
       fi
     elif [ -d "$file" ]; then
-      # if [ "$file" != "$dir" ]; then
       traverse_directory "$file"
-      # fi
     fi
   done
 }
-
-
 
 traverse_directory "$path"
 
