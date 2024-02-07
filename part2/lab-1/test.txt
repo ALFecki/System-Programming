@@ -7,9 +7,9 @@ Hello, World!
 
 
 Hello, World!
+Привет, мир!
 Hello, World!
-
-
+Hello, World!
 
 Hello, World!Hello, World!
 

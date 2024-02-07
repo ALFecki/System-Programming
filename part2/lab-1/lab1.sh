@@ -76,6 +76,16 @@ traverse_directory() {
   done
 }
 
+cat_file() {
+  local filename="$1"
+  
+  lineNumber=1
+  while IFS= read -r line; do
+    printf "%-5s %s\n" "$lineNumber:" "$line"
+    lineNumber=$((lineNumber+1))
+  done < "$filename"
+}
+
 traverse_directory "$path"
 
 echo "Search completed! You can check results in output.txt."
@@ -84,18 +94,15 @@ read -p "Enter file name, which you want to cat: " filename
 
 if [ -f "$filename" ]; then
     clear
-    lineNumber=1
-    while IFS= read -r line; do
-        printf "%-5s %s\n" "$lineNumber:" "$line"
-        lineNumber=$((lineNumber+1))
-    done < "$filename"
+    cat_file "$filename"
     
     read -p "Enter the number of string to edit: " editLineNumber
     read -p "Enter the new content for this string: " newLine
 
     if [ "$editLineNumber" -ge 1 ] 2>/dev/null; then
         sed -i "${editLineNumber}s/.*/${newLine}/" "$filename"
-        echo "String successfully editted."
+        echo -e "\nString successfully editted.\n"
+        cat_file "$filename"
     else
         echo "Incorrect string number."
     fi
