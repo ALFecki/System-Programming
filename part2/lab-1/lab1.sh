@@ -80,9 +80,7 @@ traverse_directory "$path"
 
 echo "Search completed! You can check results in output.txt."
 
-echo "Enter file name, which you want to cat: "
-
-read filename
+read -p "Enter file name, which you want to cat: " filename
 
 if [ -f "$filename" ]; then
     clear
@@ -91,6 +89,16 @@ if [ -f "$filename" ]; then
         printf "%-5s %s\n" "$lineNumber:" "$line"
         lineNumber=$((lineNumber+1))
     done < "$filename"
+    
+    read -p "Enter the number of string to edit: " editLineNumber
+    read -p "Enter the new content for this string: " newLine
+
+    if [ "$editLineNumber" -ge 1 ] 2>/dev/null; then
+        sed -i "${editLineNumber}s/.*/${newLine}/" "$filename"
+        echo "String successfully editted."
+    else
+        echo "Incorrect string number."
+    fi
 else
     echo "$filename: no such file or directory."
 fi
