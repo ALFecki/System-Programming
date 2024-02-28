@@ -14,8 +14,12 @@ void list_processes() {
     struct dirent *entry;
     while ((entry = readdir(dir)) != NULL) {
         if (entry->d_type == DT_DIR) {
-            char path[256];
-            snprintf(path, sizeof(path), "/proc/%s/cmdline", entry->d_name);
+            char *path = malloc(strlen("/proc/") + strlen(entry->d_name) + strlen("/cmdline") + 1);
+            if (path == NULL) {
+                perror("malloc");
+                exit(1);
+            }
+            snprintf(path, strlen("/proc/") + strlen(entry->d_name) + strlen("/cmdline") + 1, "/proc/%s/cmdline", entry->d_name);
             FILE *file = fopen(path, "r");
             if (file != NULL) {
                 char cmdline[256];
