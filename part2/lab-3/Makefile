@@ -3,7 +3,7 @@ CFLAGS = -Wall -Werror
 
 SRCS = src/main.c src/process.c
 OBJS = $(SRCS:.c=.o)
-EXECUTABLE = ps_analog
+EXECUTABLE = my_ps
 
 .PHONY: all clean
 
