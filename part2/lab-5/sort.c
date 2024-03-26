@@ -51,11 +51,11 @@ int main() {
     gettimeofday(&end_time, NULL);
     double execution_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
-    // Вывод отсортированного массива и время выполнения
-    printf("Отсортированный массив:\n");
-    for (int i = 0; i < array_size; i++) {
-        printf("%d ", array[i]);
-    }
+    // Bbox отсортированного массива и время выполнения
+    // printf("Отсортированный массив:\n");
+    // for (int i = 0; i < array_size; i++) {
+    //     printf("%d ", array[i]);
+    // }
     printf("\n");
     printf("Время выполнения: %.6f сек\n", execution_time);
 
