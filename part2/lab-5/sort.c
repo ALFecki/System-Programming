@@ -4,22 +4,35 @@
 
 #define MAX_FILENAME_LENGTH 100
 
+// Функция сортировки массива
+void sort(int* array, int array_size) {
+    // Сортировка массива
+    for (int i = 0; i < array_size; i++) {
+        for (int j = i + 1; j < array_size; j++) {
+            if (array[i] > array[j]) {
+                int temp = array[i];
+                array[i] = array[j];
+                array[j] = temp;
+            }
+        }
+    }
+}
+
 int main() {
+    char filename[MAX_FILENAME_LENGTH];
     int array_capacity = 10;  // Изначальная емкость массива
     int array_size = 0;      // Фактический размер массива
     int* array = (int*) malloc(array_capacity * sizeof(int));
-
-    char filename[MAX_FILENAME_LENGTH];
     printf("Введите имя файла: ");
     scanf("%s", filename);
 
+    // Открытие файла для чтения
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
         printf("Не удалось открыть файл\n");
         return 1;
     }
 
-    // Чтение данных из файла и расширение массива при необходимости
     int value;
     while (fscanf(file, "%d", &value) == 1) {
         // Если фактический размер массива равен его емкости, увеличиваем емкость вдвое
@@ -33,31 +46,19 @@ int main() {
     }
 
     fclose(file);
+    printf("Данные из файла прочитаны!\n");
+    printf("Массив данных имеет длину: %d\n", array_size);
 
     // Сортировка массива
     struct timeval start_time, end_time;
     gettimeofday(&start_time, NULL);
 
-    for (int i = 0; i < array_size - 1; i++) {
-        for (int j = 0; j < array_size - i - 1; j++) {
-            if (array[j] > array[j + 1]) {
-                int temp = array[j];
-                array[j] = array[j + 1];
-                array[j + 1] = temp;
-            }
-        }
-    }
+    sort(array, array_size);
 
     gettimeofday(&end_time, NULL);
     double execution_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
-    // Bbox отсортированного массива и время выполнения
-    // printf("Отсортированный массив:\n");
-    // for (int i = 0; i < array_size; i++) {
-    //     printf("%d ", array[i]);
-    // }
-    printf("\n");
-    printf("Время выполнения: %.6f сек\n", execution_time);
+    printf("Время выполнения: %.3f сек\n", execution_time);
 
     // Освобождение памяти
     free(array);

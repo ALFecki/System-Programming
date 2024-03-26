@@ -35,8 +35,11 @@ void* sort(void* params) {
 }
 
 int main() {
-    int num_threads, array_size;
+    int num_threads;
     char filename[MAX_FILENAME_LENGTH];
+    int array_capacity = 10;  // Изначальная емкость массива
+    int array_size = 0;      // Фактический размер массива
+    int* array = (int*) malloc(array_capacity * sizeof(int));
     printf("Введите количество потоков: ");
     scanf("%d", &num_threads);
     printf("Введите имя файла: ");
@@ -49,16 +52,21 @@ int main() {
         return 1;
     }
 
-    // Чтение размера массива из файла
-    fscanf(file, "%d", &array_size);
+    int value;
+    while (fscanf(file, "%d", &value) == 1) {
+        // Если фактический размер массива равен его емкости, увеличиваем емкость вдвое
+        if (array_size == array_capacity) {
+            array_capacity *= 2;
+            array = (int*) realloc(array, array_capacity * sizeof(int));
+        }
 
-    // Создание и заполнение массива данными из файла
-    int* array = (int*) malloc(array_size * sizeof(int));
-    for (int i = 0; i < array_size; i++) {
-        fscanf(file, "%d", &array[i]);
+        array[array_size] = value;
+        array_size++;
     }
 
     fclose(file);
+    printf("Данные из файла прочитаны!\n");
+    printf("Массив данных имеет длину: %d\n", array_size);
 
     // Разделение массива на фрагменты для каждого потока
     int fragment_size = array_size / num_threads;
@@ -104,13 +112,7 @@ int main() {
     gettimeofday(&end_time, NULL);
     double execution_time = (end_time.tv_sec - start_time.tv_sec) + (end_time.tv_usec - start_time.tv_usec) / 1000000.0;
 
-    // Вывод отсортированного массива и время выполнения
-    printf("Отсортированный массив:\n");
-    for (int i = 0; i < array_size; i++) {
-        printf("%d ", sorted_array[i]);
-    }
-    printf("\n");
-    printf("Время выполнения: %.6f сек\n", execution_time);
+    printf("Время выполнения: %.3f сек\n", execution_time);
 
     // Освобождение памяти
     free(array);
