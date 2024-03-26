@@ -2,26 +2,34 @@
 #include <stdlib.h>
 #include <sys/time.h>
 
+#define MAX_FILENAME_LENGTH 100
+
 int main() {
-    int array_size;
+    int array_capacity = 10;  // Изначальная емкость массива
+    int array_size = 0;      // Фактический размер массива
+    int* array = (int*) malloc(array_capacity * sizeof(int));
+
     char filename[MAX_FILENAME_LENGTH];
     printf("Введите имя файла: ");
     scanf("%s", filename);
 
-    // Открытие файла для чтения
     FILE* file = fopen(filename, "r");
     if (file == NULL) {
         printf("Не удалось открыть файл\n");
         return 1;
     }
 
-    // Чтение размера массива из файла
-    fscanf(file, "%d", &array_size);
+    // Чтение данных из файла и расширение массива при необходимости
+    int value;
+    while (fscanf(file, "%d", &value) == 1) {
+        // Если фактический размер массива равен его емкости, увеличиваем емкость вдвое
+        if (array_size == array_capacity) {
+            array_capacity *= 2;
+            array = (int*) realloc(array, array_capacity * sizeof(int));
+        }
 
-    // Создание и заполнение массива данными из файла
-    int* array = (int*) malloc(array_size * sizeof(int));
-    for (int i = 0; i < array_size; i++) {
-        fscanf(file, "%d", &array[i]);
+        array[array_size] = value;
+        array_size++;
     }
 
     fclose(file);
